@@ -1,0 +1,740 @@
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>THREEVERSE — a 3D toy studio</title>
+<meta name="description" content="Grab it, spin it, morph it, explode it. A playful interactive 3D playground built with Three.js." />
+<meta name="theme-color" content="#0B0A1F" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪩</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Inter:wght@400;500;600&family=Space+Mono&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --bg: #0b0a1f;
+    --bg2: #16123a;
+    --ink: #edebff;
+    --muted: #9b96c9;
+    --coral: #ff6b6b;
+    --mint: #4fe3c1;
+    --gold: #ffd166;
+    --violet: #a78bff;
+    --line: rgba(167, 139, 255, 0.22);
+    --panel: rgba(19, 16, 48, 0.62);
+    --display: "Bricolage Grotesque", system-ui, sans-serif;
+    --body: "Inter", system-ui, sans-serif;
+    --mono: "Space Mono", ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { margin: 0; height: 100%; }
+
+  body {
+    background:
+      radial-gradient(120% 90% at 15% 0%, #1c1650 0%, transparent 55%),
+      radial-gradient(120% 100% at 100% 100%, #2a1240 0%, transparent 50%),
+      var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  a { color: inherit; }
+
+  /* three.js canvas layer */
+  #scene {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    display: block;
+    touch-action: none;
+    cursor: grab;
+  }
+  #scene.grabbing { cursor: grabbing; }
+
+  /* ---------- overlay UI ---------- */
+  .ui {
+    position: relative;
+    z-index: 2;
+    min-height: 100svh;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    pointer-events: none;
+  }
+  .ui > * { pointer-events: auto; }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: clamp(1rem, 3vw, 2rem) clamp(1.1rem, 4vw, 3rem);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-family: var(--display);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    font-size: clamp(1.05rem, 2.4vw, 1.35rem);
+  }
+  .disc {
+    width: 1.35em;
+    height: 1.35em;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, var(--coral), var(--gold), var(--mint), var(--violet), var(--coral));
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.06), 0 6px 22px rgba(167, 139, 255, 0.35);
+    animation: spin 9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    padding: 0.4rem 0.7rem;
+    border-radius: 100px;
+  }
+
+  /* hero copy sits to one side so the object breathes in the middle */
+  .hero {
+    align-self: center;
+    max-width: min(46ch, 92vw);
+    padding: 0 clamp(1.1rem, 4vw, 3rem);
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--mint);
+    margin: 0 0 1rem;
+  }
+  h1 {
+    font-family: var(--display);
+    font-weight: 800;
+    font-size: clamp(2.6rem, 8.5vw, 5.4rem);
+    line-height: 0.94;
+    letter-spacing: -0.045em;
+    margin: 0;
+  }
+  h1 em {
+    font-style: normal;
+    background: linear-gradient(100deg, var(--coral), var(--gold) 45%, var(--mint));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .lede {
+    color: var(--muted);
+    font-size: clamp(1rem, 1.5vw, 1.15rem);
+    line-height: 1.55;
+    max-width: 40ch;
+    margin: 1.3rem 0 0;
+  }
+  .hint {
+    margin-top: 1.5rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+  }
+  .hint b { color: var(--ink); font-weight: 600; }
+  kbd {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 6px;
+    padding: 0.12rem 0.45rem;
+    color: var(--ink);
+  }
+
+  /* ---------- control dock ---------- */
+  .dock {
+    margin: 0 auto clamp(1rem, 3vw, 2rem);
+    width: min(1060px, 95vw);
+    background: var(--panel);
+    backdrop-filter: blur(16px) saturate(1.3);
+    -webkit-backdrop-filter: blur(16px) saturate(1.3);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    padding: 0.85rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.9rem 1.4rem;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  }
+  .group { display: flex; flex-direction: column; gap: 0.5rem; }
+  .group > .glabel {
+    font-family: var(--mono);
+    font-size: 0.64rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .row { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+
+  button.chip {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 0.5rem 0.8rem;
+    cursor: pointer;
+    transition: transform 0.12s ease, background 0.15s ease, border-color 0.15s ease;
+  }
+  button.chip:hover { transform: translateY(-2px); background: rgba(255, 255, 255, 0.1); }
+  button.chip.active {
+    background: linear-gradient(180deg, rgba(79, 227, 193, 0.22), rgba(167, 139, 255, 0.12));
+    border-color: var(--mint);
+    color: #fff;
+  }
+
+  .swatches { display: flex; gap: 0.4rem; }
+  .swatch {
+    width: 30px; height: 30px;
+    border-radius: 9px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.12s ease;
+  }
+  .swatch:hover { transform: translateY(-2px) scale(1.05); }
+  .swatch.active { border-color: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.14); }
+
+  .toggle {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 0.5rem 0.8rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .toggle .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.2s ease, box-shadow 0.2s ease;
+  }
+  .toggle.on .dot { background: var(--gold); box-shadow: 0 0 10px var(--gold); }
+
+  .action {
+    font-family: var(--display);
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    font-size: 0.95rem;
+    color: #1a0f2e;
+    background: linear-gradient(120deg, var(--gold), var(--coral));
+    border: none;
+    border-radius: 14px;
+    padding: 0.65rem 1.15rem;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(255, 107, 107, 0.35);
+    transition: transform 0.12s ease, filter 0.15s ease;
+  }
+  .action:hover { transform: translateY(-2px); filter: brightness(1.05); }
+  .action:active { transform: translateY(0) scale(0.98); }
+
+  /* sculpt sliders */
+  .glabel { display: flex; align-items: center; }
+  .mini {
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 0.45rem;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .mini:hover { color: var(--ink); }
+  .sliders { display: flex; flex-direction: column; gap: 0.4rem; }
+  .sl {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .sl > span { width: 3.4em; text-align: right; }
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 108px;
+    height: 4px;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, 0.14);
+    outline: none;
+    cursor: pointer;
+    margin: 0;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 15px; height: 15px;
+    border-radius: 50%;
+    background: var(--mint);
+    border: 2px solid #0b0a1f;
+    box-shadow: 0 0 8px rgba(79, 227, 193, 0.6);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 15px; height: 15px;
+    border-radius: 50%;
+    background: var(--mint);
+    border: 2px solid #0b0a1f;
+    box-shadow: 0 0 8px rgba(79, 227, 193, 0.6);
+  }
+
+  /* loader */
+  #loader {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    display: grid;
+    place-content: center;
+    gap: 1rem;
+    justify-items: center;
+    background: var(--bg);
+    transition: opacity 0.6s ease;
+  }
+  #loader.done { opacity: 0; pointer-events: none; }
+  .loadring {
+    width: 46px; height: 46px;
+    border-radius: 50%;
+    border: 3px solid rgba(167, 139, 255, 0.25);
+    border-top-color: var(--mint);
+    animation: spin 0.9s linear infinite;
+  }
+  #loader p { font-family: var(--mono); color: var(--muted); font-size: 0.8rem; letter-spacing: 0.1em; }
+
+  /* focus */
+  :focus-visible { outline: 2px solid var(--mint); outline-offset: 3px; border-radius: 8px; }
+
+  @media (max-width: 720px) {
+    .tag { display: none; }
+    .dock { justify-content: center; }
+    .lede { display: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .disc, .loadring { animation: none; }
+  }
+</style>
+
+<canvas id="scene"></canvas>
+
+<div class="ui">
+  <header>
+    <div class="brand"><span class="disc" aria-hidden="true"></span> THREEVERSE</div>
+    <span class="tag">Three.js playground</span>
+  </header>
+
+  <section class="hero">
+    <p class="eyebrow">a 3D toy studio</p>
+    <h1>Grab it.<br />Spin it.<br /><em>Break it.</em></h1>
+    <p class="lede">One shape, floating in space, waiting for you. Drag to fling it around, morph it into something new, swap the finish, then blow it apart — no reason needed.</p>
+    <p class="hint">🖱️ <b>Drag</b> to spin · <b>sculpt</b> with the sliders · press <kbd>Space</kbd> to explode</p>
+  </section>
+
+  <div class="dock" role="group" aria-label="Toy controls">
+    <div class="group">
+      <span class="glabel">Shape</span>
+      <div class="row" id="shapes"></div>
+    </div>
+    <div class="group">
+      <span class="glabel">Finish</span>
+      <div class="row" id="finishes"></div>
+    </div>
+    <div class="group">
+      <span class="glabel">Color</span>
+      <div class="swatches" id="colors"></div>
+    </div>
+    <div class="group">
+      <span class="glabel">Sculpt <button class="mini" id="sculptReset">reset</button></span>
+      <div class="sliders">
+        <label class="sl"><span>Twist</span><input id="twist" type="range" min="-100" max="100" value="0" aria-label="Twist" /></label>
+        <label class="sl"><span>Spikes</span><input id="spike" type="range" min="0" max="100" value="20" aria-label="Spikes" /></label>
+        <label class="sl"><span>Bulge</span><input id="bulge" type="range" min="-100" max="100" value="0" aria-label="Bulge" /></label>
+      </div>
+    </div>
+    <div class="group">
+      <span class="glabel">Play</span>
+      <div class="row">
+        <button class="toggle on" id="spinToggle"><span class="dot"></span> Auto-spin</button>
+        <button class="action" id="explodeBtn">💥 Explode</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="loader"><div class="loadring" aria-hidden="true"></div><p>warming up the universe…</p></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from "three";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const canvas = document.getElementById("scene");
+
+/* ---------- renderer / scene / camera ---------- */
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 100);
+camera.position.set(0, 0.4, 6.4);
+
+// image-based lighting for buttery materials
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+
+// key + rim lights for extra pop
+const key = new THREE.DirectionalLight(0xffffff, 2.1);
+key.position.set(4, 6, 5);
+scene.add(key);
+const rim = new THREE.DirectionalLight(0xa78bff, 1.4);
+rim.position.set(-6, -2, -4);
+scene.add(rim);
+scene.add(new THREE.AmbientLight(0x404060, 0.6));
+
+/* ---------- controls ---------- */
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.enablePan = false;
+controls.minDistance = 4;
+controls.maxDistance = 11;
+controls.rotateSpeed = 0.9;
+controls.addEventListener("start", () => canvas.classList.add("grabbing"));
+controls.addEventListener("end", () => canvas.classList.remove("grabbing"));
+
+/* ---------- palette ---------- */
+const COLORS = [
+  { name: "coral", hex: 0xff6b6b },
+  { name: "gold", hex: 0xffd166 },
+  { name: "mint", hex: 0x4fe3c1 },
+  { name: "violet", hex: 0xa78bff },
+  { name: "sky", hex: 0x62c8ff },
+  { name: "snow", hex: 0xf4f2ff },
+];
+let currentColor = COLORS[2].hex;
+
+/* ---------- material finishes ---------- */
+const FINISHES = {
+  Glossy: () => new THREE.MeshStandardMaterial({ color: currentColor, roughness: 0.12, metalness: 0.1, envMapIntensity: 1.4 }),
+  Metal: () => new THREE.MeshStandardMaterial({ color: currentColor, roughness: 0.18, metalness: 1.0, envMapIntensity: 1.6 }),
+  Glass: () => new THREE.MeshPhysicalMaterial({ color: currentColor, roughness: 0.05, metalness: 0, transmission: 1, thickness: 1.4, ior: 1.35, envMapIntensity: 1.5, transparent: true }),
+  Matte: () => new THREE.MeshStandardMaterial({ color: currentColor, roughness: 0.85, metalness: 0, envMapIntensity: 0.7 }),
+  Neon: () => new THREE.MeshStandardMaterial({ color: currentColor, emissive: currentColor, emissiveIntensity: 0.9, roughness: 0.4, metalness: 0.2 }),
+};
+let currentFinish = "Glossy";
+
+/* ---------- shapes ---------- */
+const SHAPES = {
+  Blob: () => new THREE.IcosahedronGeometry(1.5, 6),
+  Knot: () => new THREE.TorusKnotGeometry(1.05, 0.36, 220, 32),
+  Gem: () => new THREE.OctahedronGeometry(1.7, 0),
+  Donut: () => new THREE.TorusGeometry(1.15, 0.5, 40, 120),
+  Capsule: () => new THREE.CapsuleGeometry(0.9, 1.3, 20, 40),
+  Spikes: () => new THREE.IcosahedronGeometry(1.45, 1),
+};
+let currentShape = "Blob";
+
+// group holds the hero object so we can wobble it independently of camera
+const hero = new THREE.Group();
+scene.add(hero);
+let mesh = null;
+
+function buildMaterial() {
+  return FINISHES[currentFinish]();
+}
+
+function makeMesh() {
+  if (mesh) {
+    hero.remove(mesh);
+    mesh.geometry.dispose();
+    mesh.material.dispose();
+  }
+  const geo = SHAPES[currentShape]();
+  // store base positions for the blob wobble + explode
+  geo.userData.base = geo.attributes.position.array.slice();
+  mesh = new THREE.Mesh(geo, buildMaterial());
+  hero.add(mesh);
+  // pop-in
+  mesh.scale.setScalar(0.01);
+}
+
+makeMesh();
+
+/* ---------- floating background debris ---------- */
+const debris = new THREE.Group();
+scene.add(debris);
+const debrisGeos = [
+  new THREE.TetrahedronGeometry(0.22),
+  new THREE.IcosahedronGeometry(0.18),
+  new THREE.TorusGeometry(0.16, 0.06, 12, 24),
+];
+for (let i = 0; i < 26; i++) {
+  const g = debrisGeos[i % debrisGeos.length];
+  const c = COLORS[i % COLORS.length].hex;
+  const m = new THREE.MeshStandardMaterial({ color: c, roughness: 0.35, metalness: 0.2, emissive: c, emissiveIntensity: 0.12 });
+  const d = new THREE.Mesh(g, m);
+  const r = 5 + Math.random() * 5;
+  const a = Math.random() * Math.PI * 2;
+  const y = (Math.random() - 0.5) * 8;
+  d.position.set(Math.cos(a) * r, y, Math.sin(a) * r - 3);
+  d.rotation.set(Math.random() * 6, Math.random() * 6, Math.random() * 6);
+  d.userData.spin = new THREE.Vector3((Math.random() - 0.5) * 0.01, (Math.random() - 0.5) * 0.01, (Math.random() - 0.5) * 0.01);
+  d.userData.floatSeed = Math.random() * 100;
+  debris.add(d);
+}
+
+// star dust
+const starGeo = new THREE.BufferGeometry();
+const starN = 900;
+const starPos = new Float32Array(starN * 3);
+for (let i = 0; i < starN; i++) {
+  const r = 14 + Math.random() * 26;
+  const t = Math.random() * Math.PI * 2;
+  const p = Math.acos(2 * Math.random() - 1);
+  starPos[i * 3] = r * Math.sin(p) * Math.cos(t);
+  starPos[i * 3 + 1] = r * Math.sin(p) * Math.sin(t);
+  starPos[i * 3 + 2] = r * Math.cos(p);
+}
+starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
+const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xa78bff, size: 0.06, transparent: true, opacity: 0.7 }));
+scene.add(stars);
+
+/* ---------- interaction state ---------- */
+let autoSpin = !reduceMotion;
+let explodeAmt = 0;      // 0..1 target
+let explodeCur = 0;      // eased
+const pointer = new THREE.Vector2();
+addEventListener("pointermove", (e) => {
+  pointer.x = (e.clientX / innerWidth) * 2 - 1;
+  pointer.y = (e.clientY / innerHeight) * 2 - 1;
+});
+
+function triggerExplode() {
+  explodeAmt = 1;
+  setTimeout(() => { explodeAmt = 0; }, 650);
+}
+
+/* ---------- sculpt: live deformation applied to any shape ---------- */
+const sculpt = { twist: 0, spike: 0.12, bulge: 0 };
+const SCULPT_DEFAULTS = { twist: "0", spike: "20", bulge: "0" };
+function bindSlider(id, apply) {
+  const el = document.getElementById(id);
+  const update = () => apply(parseInt(el.value, 10) / 100);
+  el.addEventListener("input", update);
+  update();
+  return el;
+}
+const twistEl = bindSlider("twist", (v) => { sculpt.twist = v * 1.5; });
+const spikeEl = bindSlider("spike", (v) => { sculpt.spike = v * 0.6; });
+const bulgeEl = bindSlider("bulge", (v) => { sculpt.bulge = v * 0.55; });
+document.getElementById("sculptReset").onclick = () => {
+  twistEl.value = SCULPT_DEFAULTS.twist;
+  spikeEl.value = SCULPT_DEFAULTS.spike;
+  bulgeEl.value = SCULPT_DEFAULTS.bulge;
+  [twistEl, spikeEl, bulgeEl].forEach((el) => el.dispatchEvent(new Event("input")));
+};
+
+/* ---------- UI wiring ---------- */
+function makeChip(label, active, onClick) {
+  const b = document.createElement("button");
+  b.className = "chip" + (active ? " active" : "");
+  b.textContent = label;
+  b.onclick = () => { onClick(b); };
+  return b;
+}
+
+const shapesEl = document.getElementById("shapes");
+Object.keys(SHAPES).forEach((name) => {
+  const chip = makeChip(name, name === currentShape, (b) => {
+    currentShape = name;
+    shapesEl.querySelectorAll(".chip").forEach((c) => c.classList.remove("active"));
+    b.classList.add("active");
+    makeMesh();
+  });
+  shapesEl.appendChild(chip);
+});
+
+const finishesEl = document.getElementById("finishes");
+Object.keys(FINISHES).forEach((name) => {
+  const chip = makeChip(name, name === currentFinish, (b) => {
+    currentFinish = name;
+    finishesEl.querySelectorAll(".chip").forEach((c) => c.classList.remove("active"));
+    b.classList.add("active");
+    mesh.material.dispose();
+    mesh.material = buildMaterial();
+  });
+  finishesEl.appendChild(chip);
+});
+
+const colorsEl = document.getElementById("colors");
+COLORS.forEach((c, i) => {
+  const s = document.createElement("button");
+  s.className = "swatch" + (c.hex === currentColor ? " active" : "");
+  s.style.background = "#" + c.hex.toString(16).padStart(6, "0");
+  s.title = c.name;
+  s.setAttribute("aria-label", "Color " + c.name);
+  s.onclick = () => {
+    currentColor = c.hex;
+    colorsEl.querySelectorAll(".swatch").forEach((el) => el.classList.remove("active"));
+    s.classList.add("active");
+    mesh.material.dispose();
+    mesh.material = buildMaterial();
+  };
+  colorsEl.appendChild(s);
+});
+
+const spinToggle = document.getElementById("spinToggle");
+spinToggle.classList.toggle("on", autoSpin);
+spinToggle.onclick = () => {
+  autoSpin = !autoSpin;
+  spinToggle.classList.toggle("on", autoSpin);
+};
+
+document.getElementById("explodeBtn").onclick = triggerExplode;
+
+addEventListener("keydown", (e) => {
+  if (e.code === "Space" && e.target === document.body) {
+    e.preventDefault();
+    triggerExplode();
+  }
+});
+
+/* ---------- animation ---------- */
+const clock = new THREE.Clock();
+const tmp = new THREE.Vector3();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+  const dt = Math.min(clock.getDelta ? 0.016 : 0.016, 0.033);
+
+  // pop-in scale
+  if (mesh && mesh.scale.x < 1) {
+    const s = Math.min(1, mesh.scale.x + 0.08);
+    mesh.scale.setScalar(s < 1 ? s : 1);
+  }
+
+  // auto spin + subtle float
+  if (mesh) {
+    if (autoSpin && !reduceMotion) {
+      hero.rotation.y += 0.004;
+      hero.rotation.x += 0.0015;
+    }
+    hero.position.y = Math.sin(t * 0.9) * 0.12;
+
+    // parallax lean toward pointer
+    hero.rotation.z += ((-pointer.x * 0.15) - hero.rotation.z) * 0.05;
+
+    // sculpt (twist + spikes + bulge) + explode, all rebuilt from base verts
+    explodeCur += (explodeAmt - explodeCur) * 0.12;
+    const geo = mesh.geometry;
+    const pos = geo.attributes.position;
+    const base = geo.userData.base;
+    const twist = sculpt.twist, spike = sculpt.spike, bulge = sculpt.bulge;
+    const nt = reduceMotion ? 0 : t; // freeze shimmer time when reduced motion
+    for (let i = 0; i < pos.count; i++) {
+      const ix = i * 3;
+      const bx = base[ix], by = base[ix + 1], bz = base[ix + 2];
+      // twist around the vertical axis, proportional to a vertex's height
+      const ang = twist * by;
+      const c = Math.cos(ang), s = Math.sin(ang);
+      const vx = bx * c - bz * s;
+      const vy = by;
+      const vz = bx * s + bz * c;
+      // outward normal of the twisted point
+      const len = Math.hypot(vx, vy, vz) || 1;
+      const nx = vx / len, ny = vy / len, nz = vz / len;
+      // spikes: noise-modulated outward push (0 spike = perfectly smooth)
+      const noise = Math.sin(bx * 3 + nt * 1.6) * Math.cos(by * 3 - nt * 1.2) * Math.sin(bz * 3 + nt);
+      const push = spike * (0.5 + 0.5 * noise) + bulge + explodeCur * (0.6 + (i % 7) * 0.12);
+      pos.array[ix] = vx + nx * push;
+      pos.array[ix + 1] = vy + ny * push;
+      pos.array[ix + 2] = vz + nz * push;
+    }
+    pos.needsUpdate = true;
+    geo.computeVertexNormals();
+  }
+
+  // debris drift
+  debris.children.forEach((d) => {
+    d.rotation.x += d.userData.spin.x;
+    d.rotation.y += d.userData.spin.y;
+    d.rotation.z += d.userData.spin.z;
+    d.position.y += Math.sin(t * 0.6 + d.userData.floatSeed) * 0.002;
+  });
+  debris.rotation.y = t * 0.02;
+  stars.rotation.y = t * 0.01;
+
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+
+/* ---------- resize ---------- */
+addEventListener("resize", () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ---------- hide loader (rAF-independent so it never sticks in a
+   background tab, where requestAnimationFrame is throttled) ---------- */
+let loaderHidden = false;
+function hideLoader() {
+  if (loaderHidden) return;
+  loaderHidden = true;
+  const l = document.getElementById("loader");
+  if (!l) return;
+  l.classList.add("done");
+  setTimeout(() => l.remove(), 700);
+}
+// hide shortly after the module runs; also on full load, as a fallback
+setTimeout(hideLoader, 350);
+addEventListener("load", hideLoader);
+</script>
