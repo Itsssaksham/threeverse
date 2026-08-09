@@ -342,6 +342,18 @@
     .lede { display: none; }
   }
 
+  /* Chips are 35px tall from padding alone; touch needs a 44px hit area.
+     Range thumbs are likewise too small to drag reliably with a thumb. */
+  @media (pointer: coarse) {
+    button.chip { min-height: 44px; }
+    .swatch { width: 44px; height: 44px; }
+    .mini, .toggle, .action { min-height: 44px; }
+    .mini { min-width: 44px; }
+    input[type=range] { height: 44px; }
+    input[type=range]::-webkit-slider-thumb { width: 24px; height: 24px; }
+    input[type=range]::-moz-range-thumb { width: 24px; height: 24px; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .disc, .loadring { animation: none; }
   }
